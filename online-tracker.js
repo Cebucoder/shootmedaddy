@@ -2,7 +2,7 @@
 class OnlineTracker {
     constructor() {
         this.players = new Map();
-        this.currentPlayer = 'player1';
+        this.currentPlayer = null;
         this.leaderboardElement = null;
         this.lastUpdateTime = 0;
         this.updateInterval = 50; // Update every 50ms for smoother health updates
@@ -12,8 +12,11 @@ class OnlineTracker {
         this.username = '';
         this.heartbeatInterval = 2000; // 2 seconds heartbeat
         this.onlineTimeout = 5000; // 5 seconds timeout
+        this.socket = null;
         this.initializeUI();
-        this.setupRealtimeTracking();
+        this.setupSocketConnection();
+        this.setupGameStartListener();
+        this.setupUsernameListener();
         this.setupOtherPlayers();
         this.updateCurrentPlayer();
 
@@ -67,34 +70,68 @@ class OnlineTracker {
         this.updateLeaderboard();
     }
 
+    setupSocketConnection() {
+        // Connect to the Socket.IO server
+        this.socket = io('http://localhost:3000');
+
+        // Handle connection
+        this.socket.on('connect', () => {
+            console.log('Connected to server');
+            this.currentPlayer = this.socket.id;
+            this.sendPlayerUpdate();
+        });
+
+        // Handle disconnection
+        this.socket.on('disconnect', () => {
+            console.log('Disconnected from server');
+            this.currentPlayer = null;
+        });
+
+        // Handle player list updates
+        this.socket.on('playerListUpdate', (players) => {
+            this.players.clear();
+            players.forEach(player => {
+                this.players.set(player.id, player);
+            });
+            this.updateLeaderboard();
+        });
+    }
+
+    sendPlayerUpdate() {
+        if (!this.socket || !this.socket.connected) return;
+
+        const playerData = {
+            id: this.socket.id,
+            name: this.username || 'Player',
+            level: window.currentLevel || 1,
+            score: window.score || 0,
+            health: window.health || 100,
+            lastUpdate: Date.now()
+        };
+
+        if (this.players.has(this.socket.id)) {
+            this.socket.emit('playerUpdate', playerData);
+        } else {
+            this.socket.emit('playerJoin', playerData);
+        }
+    }
+
+    setupUsernameListener() {
+        const usernameInput = document.getElementById('usernameInput');
+        if (usernameInput) {
+            this.username = usernameInput.value || 'Player';
+            usernameInput.addEventListener('input', (e) => {
+                this.username = e.target.value || 'Player';
+                this.sendPlayerUpdate();
+            });
+        }
+    }
+
     setupGameStartListener() {
         const startButton = document.getElementById('startButton');
         if (startButton) {
             startButton.addEventListener('click', () => {
-                // Get username from input
-                const usernameInput = document.getElementById('usernameInput');
-                if (usernameInput) {
-                    this.username = usernameInput.value || 'Player';
-                }
-
-                // Update player with current stats
-                this.updateCurrentPlayer();
-
-                // Show the leaderboard
-                const leaderboard = document.getElementById('leaderboard');
-                if (leaderboard) {
-                    leaderboard.style.display = 'block';
-                }
-
-                // Broadcast initial player data
-                const playerData = {
-                    id: this.currentPlayer,
-                    name: this.username || 'Player',
-                    level: window.currentLevel || 1,
-                    score: window.score || 0,
-                    health: window.health || 100
-                };
-                localStorage.setItem(`player_${this.currentPlayer}`, JSON.stringify(playerData));
+                this.sendPlayerUpdate();
             });
         }
     }
@@ -216,14 +253,18 @@ class OnlineTracker {
         if (!this.leaderboardElement) return;
 
         try {
-            // Sort players by score and online status
+            // Update player count
+            const playerCount = document.getElementById('player-count');
+            if (playerCount) {
+                playerCount.innerHTML = `
+                    <span class="online-indicator"></span>
+                    ${this.players.size} Players Online
+                `;
+            }
+
+            // Sort players by score
             const sortedPlayers = Array.from(this.players.entries())
-                .sort(([, a], [, b]) => {
-                    // Online players first
-                    if (a.isOnline !== b.isOnline) return b.isOnline ? 1 : -1;
-                    // Then by score
-                    return b.score - a.score;
-                });
+                .sort(([, a], [, b]) => b.score - a.score);
 
             // Update existing elements
             const existingElements = this.leaderboardElement.children;
@@ -246,7 +287,6 @@ class OnlineTracker {
                     align-items: center;
                     transition: all 0.3s ease;
                     border: 1px solid ${id === this.currentPlayer ? 'rgba(0, 255, 0, 0.3)' : 'rgba(255, 255, 255, 0.1)'};
-                    opacity: ${player.isOnline ? '1' : '0.5'};
                 `;
 
                 const playerInfo = document.createElement('div');
@@ -259,7 +299,6 @@ class OnlineTracker {
                 // Add online indicator
                 const onlineIndicator = document.createElement('span');
                 onlineIndicator.className = 'online-indicator';
-                onlineIndicator.style.opacity = player.isOnline ? '1' : '0.3';
 
                 // Add rank
                 const rank = document.createElement('span');
@@ -271,7 +310,7 @@ class OnlineTracker {
                     min-width: 30px;
                 `;
 
-                // Add player name with online status
+                // Add player name
                 const nameElement = document.createElement('span');
                 nameElement.textContent = player.name || 'Player ' + id;
                 nameElement.style.cssText = `
@@ -376,97 +415,6 @@ class OnlineTracker {
     setCurrentPlayer(playerId) {
         this.currentPlayer = playerId;
         this.updateLeaderboard();
-    }
-
-    setupRealtimeTracking() {
-        // Create a MutationObserver to watch for changes in score and health elements
-        const observer = new MutationObserver(() => {
-            this.scheduleUpdate();
-        });
-
-        // Start observing the score and health elements
-        const scoreElement = document.getElementById('scoreValue');
-        const healthElement = document.getElementById('healthValue');
-
-        if (scoreElement) {
-            observer.observe(scoreElement, {
-                characterData: true,
-                childList: true,
-                subtree: true
-            });
-        }
-
-        if (healthElement) {
-            observer.observe(healthElement, {
-                characterData: true,
-                childList: true,
-                subtree: true
-            });
-        }
-
-        // Start the update loop
-        this.startUpdateLoop();
-    }
-
-    startUpdateLoop() {
-        const updateLoop = () => {
-            const currentTime = performance.now();
-            if (currentTime - this.lastUpdateTime >= this.updateInterval) {
-                this.updateCurrentPlayer();
-                this.lastUpdateTime = currentTime;
-            }
-            requestAnimationFrame(updateLoop);
-        };
-        requestAnimationFrame(updateLoop);
-    }
-
-    scheduleUpdate() {
-        if (!this.pendingUpdate) {
-            this.pendingUpdate = true;
-            requestAnimationFrame(() => {
-                this.updateCurrentPlayer();
-                this.pendingUpdate = false;
-            });
-        }
-    }
-
-    updateCurrentPlayer() {
-        if (this.isUpdating) return;
-        this.isUpdating = true;
-
-        try {
-            // Get game variables directly from game.js
-            const gameScore = window.score || 0;
-            const gameLevel = window.currentLevel || 1;
-            const gameHealth = window.health || 100;
-
-            // Update current player data
-            this.updatePlayer(this.currentPlayer, {
-                name: this.username || 'Player',
-                level: gameLevel,
-                score: gameScore,
-                health: gameHealth,
-                lastUpdate: Date.now()
-            });
-
-            // Broadcast the update
-            const playerData = {
-                id: this.currentPlayer,
-                name: this.username || 'Player',
-                level: gameLevel,
-                score: gameScore,
-                health: gameHealth,
-                lastUpdate: Date.now()
-            };
-            localStorage.setItem(`player_${this.currentPlayer}`, JSON.stringify(playerData));
-
-            // Force a leaderboard update
-            this.updateLeaderboard();
-        } catch (error) {
-            console.error('Error updating current player:', error);
-        } finally {
-            this.isUpdating = false;
-        }
     }
 
     setupOtherPlayers() {
@@ -580,6 +528,52 @@ class OnlineTracker {
         }
 
         this.updateLeaderboard();
+    }
+
+    // Update player data periodically
+    startUpdateLoop() {
+        setInterval(() => {
+            this.sendPlayerUpdate();
+        }, 1000);
+    }
+
+    updateCurrentPlayer() {
+        if (this.isUpdating) return;
+        this.isUpdating = true;
+
+        try {
+            // Get game variables directly from game.js
+            const gameScore = window.score || 0;
+            const gameLevel = window.currentLevel || 1;
+            const gameHealth = window.health || 100;
+
+            // Update current player data
+            this.updatePlayer(this.currentPlayer, {
+                name: this.username || 'Player',
+                level: gameLevel,
+                score: gameScore,
+                health: gameHealth,
+                lastUpdate: Date.now()
+            });
+
+            // Broadcast the update
+            const playerData = {
+                id: this.currentPlayer,
+                name: this.username || 'Player',
+                level: gameLevel,
+                score: gameScore,
+                health: gameHealth,
+                lastUpdate: Date.now()
+            };
+            localStorage.setItem(`player_${this.currentPlayer}`, JSON.stringify(playerData));
+
+            // Force a leaderboard update
+            this.updateLeaderboard();
+        } catch (error) {
+            console.error('Error updating current player:', error);
+        } finally {
+            this.isUpdating = false;
+        }
     }
 }
 
