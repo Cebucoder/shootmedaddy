@@ -295,3 +295,55 @@ button:active {
     min-height: 20px;
     text-shadow: 0 0 5px rgba(255, 68, 68, 0.5);
 }
+
+.upcoming-features {
+    background: rgba(0, 0, 0, 0.7);
+    border-radius: 10px;
+    padding: 20px;
+    margin: 20px auto;
+    max-width: 300px;
+    color: white;
+    text-align: left;
+    /* box-shadow: 0 0 20px rgba(0, 255, 255, 0.3); */
+    border: 1px solid rgba(0, 255, 255, 0.2);
+    position: absolute;
+    top: 0;
+    left: 10px;
+}
+
+.upcoming-features h2 {
+    color: #00ffff;
+    text-align: center;
+    margin-bottom: 15px;
+    font-size: 24px;
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+}
+
+.upcoming-features p {
+    margin: 10px 0;
+    line-height: 1.5;
+    text-align: center;
+}
+
+.upcoming-features ul {
+    list-style: none;
+    padding: 0;
+    margin: 20px 0;
+}
+
+.upcoming-features li {
+    margin: 15px 0;
+    padding: 10px;
+    background: rgba(0, 255, 255, 0.1);
+    border-radius: 5px;
+    transition: transform 0.2s, background 0.2s;
+}
+
+.upcoming-features li:hover {
+    transform: translateX(10px);
+    background: rgba(0, 255, 255, 0.2);
+}
+
+.upcoming-features li:last-child {
+    margin-bottom: 0;
+}
