@@ -32,12 +32,35 @@ class OnlineTracker {
         window.addEventListener('storage', (event) => {
             if (event.key && event.key.startsWith('player_')) {
                 const playerData = JSON.parse(event.newValue);
-                if (playerData && playerData.id !== this.currentPlayer) {
-                    this.updatePlayer(playerData.id, playerData);
-                    this.updateLeaderboard();
+                if (playerData) {
+                    if (playerData.id !== this.currentPlayer) {
+                        this.updatePlayer(playerData.id, playerData);
+                        this.updateLeaderboard();
+                    }
                 }
             }
         });
+
+        // Check for existing players
+        this.checkExistingPlayers();
+    }
+
+    checkExistingPlayers() {
+        // Check localStorage for existing players
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('player_')) {
+                try {
+                    const playerData = JSON.parse(localStorage.getItem(key));
+                    if (playerData && playerData.id !== this.currentPlayer) {
+                        this.updatePlayer(playerData.id, playerData);
+                    }
+                } catch (error) {
+                    console.error('Error parsing player data:', error);
+                }
+            }
+        }
+        this.updateLeaderboard();
     }
 
     setupGameStartListener() {
@@ -189,7 +212,7 @@ class OnlineTracker {
             // Update player count
             const playerCount = document.getElementById('player-count');
             if (playerCount) {
-                playerCount.textContent = `${this.players.size} Players`;
+                playerCount.textContent = `${this.players.size} Players Online`;
             }
 
             // Sort players by score
@@ -409,7 +432,8 @@ class OnlineTracker {
                 name: this.username || 'Player',
                 level: gameLevel,
                 score: gameScore,
-                health: gameHealth
+                health: gameHealth,
+                lastUpdate: Date.now()
             });
 
             // Broadcast the update
@@ -418,7 +442,8 @@ class OnlineTracker {
                 name: this.username || 'Player',
                 level: gameLevel,
                 score: gameScore,
-                health: gameHealth
+                health: gameHealth,
+                lastUpdate: Date.now()
             };
             localStorage.setItem(`player_${this.currentPlayer}`, JSON.stringify(playerData));
 
@@ -441,7 +466,8 @@ class OnlineTracker {
             name: this.username || 'Player',
             level: window.currentLevel || 1,
             score: window.score || 0,
-            health: window.health || 100
+            health: window.health || 100,
+            lastUpdate: Date.now()
         });
 
         // Update the leaderboard
@@ -457,10 +483,23 @@ class OnlineTracker {
                 name: this.username || 'Player',
                 level: window.currentLevel || 1,
                 score: window.score || 0,
-                health: window.health || 100
+                health: window.health || 100,
+                lastUpdate: Date.now()
             };
             localStorage.setItem(`player_${this.currentPlayer}`, JSON.stringify(playerData));
         }, 1000); // Update every second
+
+        // Clean up inactive players
+        setInterval(() => {
+            const currentTime = Date.now();
+            for (const [id, player] of this.players.entries()) {
+                if (id !== this.currentPlayer && currentTime - player.lastUpdate > 5000) {
+                    this.players.delete(id);
+                    localStorage.removeItem(`player_${id}`);
+                }
+            }
+            this.updateLeaderboard();
+        }, 5000); // Check every 5 seconds
     }
 }
 
