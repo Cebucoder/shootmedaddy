@@ -376,10 +376,68 @@ canvas.addEventListener('mousedown', (e) => {
     }
 });
 
-startButton.addEventListener('click', startGame);
+startButton.addEventListener('click', () => {
+    // Enable audio when start button is clicked
+    enableAudio();
+
+    // Hide start screen and show game screen
+    startScreen.style.display = 'none';
+    gameScreen.style.display = 'block';
+
+    // Start the game
+    startGame();
+});
+
 restartButton.addEventListener('click', startGame);
 
-// Start game function
+// Initialize power-up system after game initialization
+let powerUpSystem;
+
+// Add audio elements with full paths
+const bgMusic = new Audio('./bgmusic.mp3');
+const shootSound = new Audio('./shoot.mp3');
+const explodeSound = new Audio('./explode.mp3');
+
+// Configure audio
+bgMusic.loop = true;
+bgMusic.volume = 0.5;
+shootSound.volume = 0.3;
+explodeSound.volume = 0.4;
+
+// Audio state
+let audioEnabled = false;
+
+// Function to enable all audio
+function enableAudio() {
+    if (!audioEnabled) {
+        audioEnabled = true;
+
+        // Enable and start background music
+        bgMusic.currentTime = 0;
+        bgMusic.play().then(() => {
+            console.log('Background music started');
+
+            // Preload and enable other sounds
+            shootSound.load();
+            explodeSound.load();
+
+            // Play and immediately pause to enable
+            shootSound.play().then(() => {
+                shootSound.pause();
+                shootSound.currentTime = 0;
+            }).catch(e => console.error('Shoot sound setup failed:', e));
+
+            explodeSound.play().then(() => {
+                explodeSound.pause();
+                explodeSound.currentTime = 0;
+            }).catch(e => console.error('Explosion sound setup failed:', e));
+
+        }).catch(error => {
+            console.error('Audio setup failed:', error);
+        });
+    }
+}
+
 function startGame() {
     currentLevel = 1;
     enemiesRequired = 15;
@@ -411,6 +469,82 @@ function startGame() {
 
     // Spawn initial health potion
     spawnHealthPotion();
+
+    // Initialize power-up system
+    powerUpSystem = new PowerUpSystem({
+        canvas: canvas,
+        container: gameContainer,
+        player: player,
+        currentLevel: currentLevel,
+        isGameActive: true,
+        handlePlayerHit: handlePlayerHit
+    });
+
+    // Start power-up system
+    powerUpSystem.start();
+
+    // Add power-up properties to player
+    player.isShielded = false;
+    player.shieldHealth = 0;
+    player.damageMultiplier = 1;
+    player.speedMultiplier = 1;
+    player.healthRegen = false;
+
+    // Update health display to show shield
+    const updateHealthDisplay = () => {
+        if (player.isShielded) {
+            healthValue.textContent = `${health} (Shield: ${player.shieldHealth})`;
+            healthValue.style.color = '#00ffff';
+        } else {
+            healthValue.textContent = health;
+            healthValue.style.color = health > 50 ? '#00ff00' : health > 25 ? '#ffff00' : '#ff0000';
+        }
+    };
+
+    // Modify handlePlayerHit to account for shield
+    const originalHandlePlayerHit = handlePlayerHit;
+    handlePlayerHit = (damage) => {
+        if (player.isShielded) {
+            player.shieldHealth -= damage;
+            if (player.shieldHealth <= 0) {
+                player.isShielded = false;
+                player.shieldHealth = 0;
+                health -= Math.abs(player.shieldHealth);
+            }
+        } else {
+            health -= damage;
+        }
+        updateHealthDisplay();
+        if (health <= 0) {
+            gameOver();
+        }
+    };
+
+    // Add health regeneration
+    setInterval(() => {
+        if (player.healthRegen && health < 100) {
+            health = Math.min(100, health + 1);
+            updateHealthDisplay();
+        }
+    }, 1000);
+
+    // Modify bullet damage to account for double damage
+    const originalCreateBullet = createBullet;
+    createBullet = () => {
+        const bullet = originalCreateBullet();
+        bullet.damage = 10 * (player.damageMultiplier || 1);
+        return bullet;
+    };
+
+    // Modify player speed to account for speed boost
+    const originalUpdatePlayerPosition = updatePlayerPosition;
+    updatePlayerPosition = () => {
+        const speed = 5 * (player.speedMultiplier || 1);
+        // ... rest of the movement code ...
+    };
+
+    // Start the game loop
+    gameLoop();
 }
 
 // Game over function
@@ -419,6 +553,12 @@ function gameOver() {
     finalScoreElement.textContent = score;
     gameScreen.style.display = 'none';
     gameOverScreen.style.display = 'flex';
+
+    // Stop background music if it was playing
+    if (audioEnabled) {
+        bgMusic.pause();
+        bgMusic.currentTime = 0;
+    }
 }
 
 // Enhanced bullet class
@@ -498,6 +638,12 @@ class Bullet {
 function shoot() {
     const bullet = new Bullet(player.x, player.y, player.angle);
     bullets.push(bullet);
+
+    // Play shoot sound
+    shootSound.currentTime = 0;
+    shootSound.play().catch(error => {
+        console.log('Shoot sound playback failed:', error);
+    });
 }
 
 // Update particle system
@@ -1182,4 +1328,176 @@ function updateHealth(newHealth) {
     player.health = newHealth;
     window.health = newHealth;
     healthElement.textContent = newHealth;
-} 
+}
+
+// Add power-up visual effects
+function createPowerUpEffect(type) {
+    const effect = document.createElement('div');
+    effect.className = 'power-up-effect';
+    effect.style.cssText = `
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 1000;
+    `;
+
+    switch (type) {
+        case 'shield':
+            effect.style.boxShadow = '0 0 20px #00ffff';
+            break;
+        case 'doubleDamage':
+            effect.style.boxShadow = '0 0 20px #ff0000';
+            break;
+        case 'speedBoost':
+            effect.style.boxShadow = '0 0 20px #00ff00';
+            break;
+        case 'healthRegen':
+            effect.style.boxShadow = '0 0 20px #ff00ff';
+            break;
+    }
+
+    gameContainer.appendChild(effect);
+    setTimeout(() => effect.remove(), 1000);
+}
+
+// Add power-up notification
+function showPowerUpNotification(type) {
+    const notification = document.createElement('div');
+    notification.className = 'power-up-notification';
+    notification.textContent = `Power-up activated: ${type}`;
+    notification.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 10px 20px;
+        border-radius: 5px;
+        z-index: 2000;
+        animation: fadeOut 2s forwards;
+    `;
+    document.body.appendChild(notification);
+    setTimeout(() => notification.remove(), 2000);
+}
+
+// Add styles for power-up effects
+const powerUpStyles = document.createElement('style');
+powerUpStyles.textContent = `
+    @keyframes fadeOut {
+        0% { opacity: 1; }
+        100% { opacity: 0; }
+    }
+
+    .power-up-effect {
+        animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+        0% { transform: scale(1); opacity: 0.5; }
+        50% { transform: scale(1.1); opacity: 0.8; }
+        100% { transform: scale(1); opacity: 0.5; }
+    }
+`;
+document.head.appendChild(powerUpStyles);
+
+// Function to play explosion sound
+function playExplosionSound() {
+    if (!audioEnabled) {
+        console.log('Explosion sound not played: Audio not enabled');
+        return;
+    }
+
+    console.log('Attempting to play explosion sound...');
+
+    // Reset the sound to the beginning
+    explodeSound.currentTime = 0;
+
+    // Play the sound
+    explodeSound.play()
+        .then(() => {
+            console.log('✅ Explosion sound played successfully');
+        })
+        .catch(error => {
+            console.error('❌ Error playing explosion sound:', error);
+        });
+}
+
+// Modify handleEnemyHit function
+function handleEnemyHit(enemy, bullet) {
+    console.log('Enemy hit! Health:', enemy.health);
+    enemy.health -= bullet.damage;
+
+    // Play explosion sound
+    playExplosionSound();
+
+    if (enemy.health <= 0) {
+        console.log('Enemy destroyed!');
+        handleEnemyDeath(enemy);
+    }
+}
+
+// Modify handleEnemyDeath function
+function handleEnemyDeath(enemy) {
+    console.log('Handling enemy death...');
+    // Play explosion sound for enemy death
+    playExplosionSound();
+
+    // Remove enemy from the game
+    const index = enemies.indexOf(enemy);
+    if (index > -1) {
+        enemies.splice(index, 1);
+        console.log('Enemy removed from game. Remaining enemies:', enemies.length);
+    }
+
+    // Update score
+    score += 100;
+    scoreElement.textContent = score;
+    console.log('Score updated:', score);
+
+    // Check for level completion
+    if (enemies.length === 0) {
+        currentLevel++;
+        levelValue.textContent = currentLevel;
+        console.log('Level completed! Moving to level:', currentLevel);
+        spawnEnemies();
+    }
+}
+
+// Modify checkBulletCollisions function
+function checkBulletCollisions() {
+    for (let i = bullets.length - 1; i >= 0; i--) {
+        const bullet = bullets[i];
+        for (let j = enemies.length - 1; j >= 0; j--) {
+            const enemy = enemies[j];
+            if (isColliding(bullet, enemy)) {
+                console.log('Bullet collision detected!');
+                // Play explosion sound on hit
+                playExplosionSound();
+
+                // Handle the hit
+                handleEnemyHit(enemy, bullet);
+
+                // Remove the bullet
+                bullets.splice(i, 1);
+                console.log('Bullet removed. Remaining bullets:', bullets.length);
+                break;
+            }
+        }
+    }
+}
+
+// Add audio cleanup to resetGame function
+function resetGame() {
+    // ... existing resetGame code ...
+
+    // Restart background music
+    bgMusic.currentTime = 0;
+    bgMusic.play().catch(error => {
+        console.error('Audio restart failed:', error);
+    });
+
+    // ... rest of resetGame code ...
+}
+
