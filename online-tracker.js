@@ -8,6 +8,7 @@ class OnlineTracker {
         this.updateInterval = 120000; // 2 minutes in milliseconds
         this.initializeUI();
         this.setupRealtimeTracking();
+        this.setupOtherPlayers();
         this.updateCurrentPlayer();
 
         // Listen for game start
@@ -192,108 +193,134 @@ class OnlineTracker {
     updateLeaderboard() {
         if (!this.leaderboardElement) return;
 
-        // Update player count
-        const playerCount = document.getElementById('player-count');
-        if (playerCount) {
-            playerCount.textContent = `${this.players.size} Players`;
-        }
+        try {
+            // Update player count
+            const playerCount = document.getElementById('player-count');
+            if (playerCount) {
+                playerCount.textContent = `${this.players.size} Players`;
+            }
 
-        // Sort players by score
-        const sortedPlayers = Array.from(this.players.entries())
-            .sort(([, a], [, b]) => b.score - a.score);
+            // Sort players by score
+            const sortedPlayers = Array.from(this.players.entries())
+                .sort(([, a], [, b]) => b.score - a.score);
 
-        // Create new elements
-        const newElements = sortedPlayers.map(([id, player], index) => {
-            const playerElement = document.createElement('li');
-            playerElement.style.cssText = `
-                padding: 12px;
-                margin: 5px 0;
-                border-radius: 10px;
-                background: ${id === this.currentPlayer ? 'rgba(0, 255, 0, 0.1)' : 'rgba(255, 255, 255, 0.05)'};
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                transition: all 0.3s ease;
-                opacity: 0;
-                transform: translateY(10px);
-                border: 1px solid ${id === this.currentPlayer ? 'rgba(0, 255, 0, 0.3)' : 'rgba(255, 255, 255, 0.1)'};
-            `;
+            // Create new elements
+            const newElements = sortedPlayers.map(([id, player], index) => {
+                const playerElement = document.createElement('li');
+                playerElement.style.cssText = `
+                    padding: 12px;
+                    margin: 5px 0;
+                    border-radius: 10px;
+                    background: ${id === this.currentPlayer ? 'rgba(0, 255, 0, 0.1)' : 'rgba(255, 255, 255, 0.05)'};
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    transition: all 0.3s ease;
+                    opacity: 0;
+                    transform: translateY(10px);
+                    border: 1px solid ${id === this.currentPlayer ? 'rgba(0, 255, 0, 0.3)' : 'rgba(255, 255, 255, 0.1)'};
+                `;
 
-            const playerInfo = document.createElement('div');
-            playerInfo.style.cssText = `
-                display: flex;
-                align-items: center;
-                gap: 10px;
-            `;
+                const playerInfo = document.createElement('div');
+                playerInfo.style.cssText = `
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                `;
 
-            // Add rank
-            const rank = document.createElement('span');
-            rank.textContent = `#${index + 1}`;
-            rank.style.cssText = `
-                color: ${index === 0 ? '#ffd700' : index === 1 ? '#c0c0c0' : index === 2 ? '#cd7f32' : '#00ff00'};
-                font-weight: bold;
-                font-size: 16px;
-                min-width: 30px;
-            `;
+                // Add rank
+                const rank = document.createElement('span');
+                rank.textContent = `#${index + 1}`;
+                rank.style.cssText = `
+                    color: ${index === 0 ? '#ffd700' : index === 1 ? '#c0c0c0' : index === 2 ? '#cd7f32' : '#00ff00'};
+                    font-weight: bold;
+                    font-size: 16px;
+                    min-width: 30px;
+                `;
 
-            // Add player name
-            const nameElement = document.createElement('span');
-            nameElement.textContent = player.name || 'Player ' + id;
-            nameElement.style.cssText = `
-                color: ${id === this.currentPlayer ? '#00ff00' : 'white'};
-                font-weight: ${id === this.currentPlayer ? 'bold' : 'normal'};
-                font-size: 16px;
-            `;
+                // Add player name
+                const nameElement = document.createElement('span');
+                nameElement.textContent = player.name || 'Player ' + id;
+                nameElement.style.cssText = `
+                    color: ${id === this.currentPlayer ? '#00ff00' : 'white'};
+                    font-weight: ${id === this.currentPlayer ? 'bold' : 'normal'};
+                    font-size: 16px;
+                `;
 
-            const statsElement = document.createElement('div');
-            statsElement.style.cssText = `
-                display: flex;
-                flex-direction: column;
-                align-items: flex-end;
-                gap: 5px;
-            `;
+                const statsElement = document.createElement('div');
+                statsElement.style.cssText = `
+                    display: flex;
+                    flex-direction: column;
+                    align-items: flex-end;
+                    gap: 5px;
+                `;
 
-            // Add level badge
-            const levelBadge = document.createElement('div');
-            levelBadge.textContent = `Level ${player.level}`;
-            levelBadge.style.cssText = `
-                background: rgba(0, 255, 0, 0.2);
-                padding: 3px 8px;
-                border-radius: 10px;
-                font-size: 12px;
-                color: #00ff00;
-            `;
+                // Add level badge
+                const levelBadge = document.createElement('div');
+                levelBadge.textContent = `Level ${player.level}`;
+                levelBadge.style.cssText = `
+                    background: rgba(0, 255, 0, 0.2);
+                    padding: 3px 8px;
+                    border-radius: 10px;
+                    font-size: 12px;
+                    color: #00ff00;
+                `;
 
-            // Add score
-            const scoreElement = document.createElement('div');
-            scoreElement.textContent = `${player.score.toLocaleString()} pts`;
-            scoreElement.style.cssText = `
-                color: #aaa;
-                font-size: 14px;
-            `;
+                // Add score
+                const scoreElement = document.createElement('div');
+                scoreElement.textContent = `${player.score.toLocaleString()} pts`;
+                scoreElement.style.cssText = `
+                    color: #aaa;
+                    font-size: 14px;
+                `;
 
-            playerInfo.appendChild(rank);
-            playerInfo.appendChild(nameElement);
-            statsElement.appendChild(levelBadge);
-            statsElement.appendChild(scoreElement);
-            playerElement.appendChild(playerInfo);
-            playerElement.appendChild(statsElement);
+                // Add health bar
+                const healthBar = document.createElement('div');
+                healthBar.style.cssText = `
+                    width: 60px;
+                    height: 4px;
+                    background: rgba(255, 255, 255, 0.1);
+                    border-radius: 2px;
+                    overflow: hidden;
+                    margin-top: 4px;
+                `;
 
-            return playerElement;
-        });
+                const healthFill = document.createElement('div');
+                healthFill.style.cssText = `
+                    width: ${player.health}%;
+                    height: 100%;
+                    background: ${player.health > 50 ? '#00ff00' : player.health > 25 ? '#ffff00' : '#ff0000'};
+                    transition: all 0.3s ease;
+                `;
 
-        // Clear current leaderboard
-        this.leaderboardElement.innerHTML = '';
+                healthBar.appendChild(healthFill);
+                statsElement.appendChild(levelBadge);
+                statsElement.appendChild(scoreElement);
+                statsElement.appendChild(healthBar);
 
-        // Add new elements with staggered animation
-        newElements.forEach((element, index) => {
-            this.leaderboardElement.appendChild(element);
-            // Trigger animation
-            requestAnimationFrame(() => {
-                element.style.opacity = '1';
-                element.style.transform = 'translateY(0)';
+                playerInfo.appendChild(rank);
+                playerInfo.appendChild(nameElement);
+                playerElement.appendChild(playerInfo);
+                playerElement.appendChild(statsElement);
+
+                return playerElement;
             });
-        });
+
+            // Clear current leaderboard
+            this.leaderboardElement.innerHTML = '';
+
+            // Add new elements with staggered animation
+            newElements.forEach((element, index) => {
+                this.leaderboardElement.appendChild(element);
+                // Trigger animation
+                requestAnimationFrame(() => {
+                    element.style.opacity = '1';
+                    element.style.transform = 'translateY(0)';
+                });
+            });
+        } catch (error) {
+            console.error('Error updating leaderboard:', error);
+        }
     }
 
     setCurrentPlayer(playerId) {
@@ -330,30 +357,73 @@ class OnlineTracker {
                 subtree: true
             });
         }
+
+        // Also watch for game state changes
+        setInterval(() => {
+            this.updateCurrentPlayer();
+        }, 1000); // Update every second
     }
 
     updateCurrentPlayer() {
-        // Directly access game variables
-        const gameScore = window.score || 0;
-        const gameLevel = window.currentLevel || 1;
-        const gameHealth = window.player?.health || 100;
+        try {
+            // Get game variables directly from game.js
+            const gameScore = window.score || 0;
+            const gameLevel = window.currentLevel || 1; // Access the global currentLevel variable
+            const gameHealth = window.health || 100;
 
-        this.updatePlayer('player1', {
-            name: 'You',
-            level: gameLevel,
-            score: gameScore,
-            health: gameHealth
+            // Update current player data
+            this.updatePlayer('player1', {
+                name: 'You',
+                level: gameLevel,
+                score: gameScore,
+                health: gameHealth
+            });
+
+            // Force a leaderboard update
+            this.updateLeaderboard();
+        } catch (error) {
+            console.error('Error updating current player:', error);
+        }
+    }
+
+    setupOtherPlayers() {
+        // Add some initial other players
+        const otherPlayers = [
+            // { id: 'player2', name: 'Player 2', level: 2, score: 1500, health: 85 },
+            // { id: 'player3', name: 'Player 3', level: 1, score: 800, health: 100 },
+        ];
+
+        otherPlayers.forEach(player => {
+            this.updatePlayer(player.id, player);
         });
+
+        // Update other players' scores periodically
+        setInterval(() => {
+            otherPlayers.forEach(player => {
+                // Randomly update scores and levels
+                const scoreChange = Math.floor(Math.random() * 100) - 20; // -20 to +80
+                const newScore = Math.max(0, player.score + scoreChange);
+                const newLevel = Math.max(1, Math.floor(newScore / 1000) + 1);
+                const newHealth = Math.min(100, Math.max(0, player.health + (Math.random() * 20 - 10)));
+
+                this.updatePlayer(player.id, {
+                    ...player,
+                    score: newScore,
+                    level: newLevel,
+                    health: newHealth
+                });
+            });
+        }, 30000); // Update every 30 seconds
     }
 }
 
 // Create global tracker instance
 const onlineTracker = new OnlineTracker();
 
-// Update the leaderboard every 2 minutes
+// Update the leaderboard every second for current player
 setInterval(() => {
     onlineTracker.updateCurrentPlayer();
-}, 120000);
+}, 1000);
 
 // Export the tracker for use in other files
 window.onlineTracker = onlineTracker; 

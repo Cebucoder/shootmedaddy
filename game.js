@@ -22,6 +22,11 @@ let enemiesKilled = 0;
 let bossSpawned = false;
 let bossDefeated = false;
 
+// Expose game variables to window object for online tracker
+window.score = score;
+window.health = health;
+window.currentLevel = currentLevel;
+
 // Add player damage effect variables at the top with other game state
 let playerDamageGlow = 0;
 let playerInvincible = false;
@@ -619,6 +624,11 @@ function spawnHealthPotion() {
 function update() {
     if (!gameRunning) return;
 
+    // Update window variables
+    window.score = score;
+    window.health = health;
+    window.currentLevel = currentLevel;
+
     // Check for health potion respawn
     const currentTime = Date.now();
     if (currentTime - lastHealthPotionTime >= HEALTH_POTION_RESPAWN_TIME) {
@@ -1077,6 +1087,7 @@ function showLevelTransition() {
 function startNextLevel() {
     // Increment level
     currentLevel++;
+    window.currentLevel = currentLevel; // Update window variable
     console.log('Starting Level:', currentLevel); // Debug log
 
     // Set requirements based on level
