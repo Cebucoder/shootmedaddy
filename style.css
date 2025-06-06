@@ -71,8 +71,8 @@ body {
 
 .game-container {
     position: relative;
-    width: 800px;
-    height: 600px;
+    width: 900px;
+    height: 810px;
     box-shadow: 0 0 30px rgba(0, 255, 0, 0.2);
     border-radius: 10px;
     overflow: hidden;
@@ -257,4 +257,41 @@ button:active {
     100% {
         transform: translateY(100%);
     }
+}
+
+.username-container {
+    margin: 20px 0;
+    text-align: center;
+}
+
+#usernameInput {
+    padding: 12px 20px;
+    font-size: 18px;
+    border: 2px solid #4CAF50;
+    border-radius: 25px;
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    width: 80%;
+    max-width: 300px;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+#usernameInput:focus {
+    outline: none;
+    border-color: #45a049;
+    box-shadow: 0 0 15px rgba(76, 175, 80, 0.5);
+    background: rgba(255, 255, 255, 0.15);
+}
+
+#usernameInput::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.error-message {
+    color: #ff4444;
+    font-size: 14px;
+    margin-top: 5px;
+    min-height: 20px;
+    text-shadow: 0 0 5px rgba(255, 68, 68, 0.5);
 }

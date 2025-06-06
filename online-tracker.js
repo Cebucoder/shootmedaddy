@@ -9,6 +9,7 @@ class OnlineTracker {
         this.isUpdating = false;
         this.pendingUpdate = false;
         this.playerCounter = 1;
+        this.username = '';
         this.initializeUI();
         this.setupRealtimeTracking();
         this.setupOtherPlayers();
@@ -60,117 +61,83 @@ class OnlineTracker {
     initializeUI() {
         // Create leaderboard container
         const leaderboardContainer = document.createElement('div');
-        leaderboardContainer.id = 'leaderboard-container';
+        leaderboardContainer.id = 'leaderboard';
         leaderboardContainer.style.cssText = `
             position: fixed;
             top: 20px;
             right: 20px;
-            background: rgba(0, 0, 0, 0.85);
-            padding: 20px;
-            border-radius: 15px;
+            width: 300px;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 10px;
+            padding: 15px;
             color: white;
-            font-family: 'Arial', sans-serif;
+            font-family: Arial, sans-serif;
             z-index: 1000;
-            min-width: 280px;
-            box-shadow: 0 0 20px rgba(0, 255, 0, 0.2);
-            border: 1px solid rgba(0, 255, 0, 0.3);
             backdrop-filter: blur(5px);
-            transition: all 0.3s ease;
-            display: none;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
         `;
 
-        // Create leaderboard header
-        const header = document.createElement('div');
-        header.style.cssText = `
-            display: flex;
-            align-items: center;
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid rgba(0, 255, 0, 0.3);
-        `;
-
-        // Create online indicator
-        const onlineIndicator = document.createElement('div');
-        onlineIndicator.style.cssText = `
-            width: 10px;
-            height: 10px;
-            background: #00ff00;
-            border-radius: 50%;
-            margin-right: 10px;
-            box-shadow: 0 0 10px #00ff00;
-            animation: pulse 2s infinite;
-        `;
-
-        // Create title
-        const title = document.createElement('h3');
-        title.textContent = 'Online Players';
+        // Add title
+        const title = document.createElement('h2');
+        title.textContent = 'Leaderboard';
         title.style.cssText = `
-            margin: 0;
-            color: #00ff00;
+            margin: 0 0 15px 0;
             font-size: 20px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            flex-grow: 1;
+            color: #00ff00;
+            text-align: center;
+            text-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
         `;
 
-        // Create player count
-        const playerCount = document.createElement('span');
+        // Add player count
+        const playerCount = document.createElement('div');
         playerCount.id = 'player-count';
         playerCount.style.cssText = `
-            background: rgba(0, 255, 0, 0.2);
-            padding: 5px 10px;
-            border-radius: 10px;
+            text-align: center;
+            margin-bottom: 10px;
+            color: #aaa;
             font-size: 14px;
-            color: #00ff00;
         `;
 
-        // Add elements to header
-        header.appendChild(onlineIndicator);
-        header.appendChild(title);
-        header.appendChild(playerCount);
-
         // Create leaderboard list
-        this.leaderboardElement = document.createElement('ul');
-        this.leaderboardElement.style.cssText = `
+        const leaderboardList = document.createElement('ul');
+        leaderboardList.style.cssText = `
             list-style: none;
             padding: 0;
             margin: 0;
-            max-height: 400px;
-            overflow-y: auto;
-            scrollbar-width: thin;
-            scrollbar-color: #00ff00 rgba(0, 255, 0, 0.1);
         `;
 
-        // Add custom scrollbar styles
-        const style = document.createElement('style');
-        style.textContent = `
-            #leaderboard-container ul::-webkit-scrollbar {
-                width: 6px;
-            }
-            #leaderboard-container ul::-webkit-scrollbar-track {
-                background: rgba(0, 255, 0, 0.1);
-                border-radius: 3px;
-            }
-            #leaderboard-container ul::-webkit-scrollbar-thumb {
-                background: #00ff00;
-                border-radius: 3px;
-            }
-            @keyframes pulse {
-                0% { opacity: 1; }
-                50% { opacity: 0.5; }
-                100% { opacity: 1; }
-            }
-            @keyframes slideIn {
-                from { transform: translateX(20px); opacity: 0; }
-                to { transform: translateX(0); opacity: 1; }
-            }
-        `;
-        document.head.appendChild(style);
-
-        // Add elements to container
-        leaderboardContainer.appendChild(header);
-        leaderboardContainer.appendChild(this.leaderboardElement);
+        leaderboardContainer.appendChild(title);
+        leaderboardContainer.appendChild(playerCount);
+        leaderboardContainer.appendChild(leaderboardList);
         document.body.appendChild(leaderboardContainer);
+
+        this.leaderboardElement = leaderboardList;
+
+        // Add username validation
+        const usernameInput = document.getElementById('usernameInput');
+        const startButton = document.getElementById('startButton');
+        const usernameError = document.getElementById('usernameError');
+
+        if (usernameInput && startButton) {
+            startButton.addEventListener('click', () => {
+                const username = usernameInput.value.trim();
+                if (username.length < 3) {
+                    usernameError.textContent = 'Username must be at least 3 characters long';
+                    return;
+                }
+                if (username.length > 15) {
+                    usernameError.textContent = 'Username must be 15 characters or less';
+                    return;
+                }
+                this.username = username;
+                startGame(); // Call the game's start function
+            });
+
+            usernameInput.addEventListener('input', () => {
+                usernameError.textContent = '';
+            });
+        }
     }
 
     updatePlayer(playerId, data) {
@@ -395,7 +362,7 @@ class OnlineTracker {
 
             // Update current player data
             this.updatePlayer(this.currentPlayer, {
-                name: 'You',
+                name: this.username || 'Player',
                 level: gameLevel,
                 score: gameScore,
                 health: gameHealth
@@ -404,7 +371,7 @@ class OnlineTracker {
             // Broadcast the update
             const playerData = {
                 id: this.currentPlayer,
-                name: 'You',
+                name: this.username || 'Player',
                 level: gameLevel,
                 score: gameScore,
                 health: gameHealth
@@ -427,7 +394,7 @@ class OnlineTracker {
 
         // Add this player to the tracker
         this.updatePlayer(playerId, {
-            name: 'You',
+            name: this.username || 'Player',
             level: window.currentLevel || 1,
             score: window.score || 0,
             health: window.health || 100
@@ -447,7 +414,7 @@ class OnlineTracker {
         setInterval(() => {
             const playerData = {
                 id: this.currentPlayer,
-                name: 'You',
+                name: this.username || 'Player',
                 level: window.currentLevel || 1,
                 score: window.score || 0,
                 health: window.health || 100
