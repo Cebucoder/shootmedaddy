@@ -8,8 +8,49 @@ class OnlineTracker {
         this.updateInterval = 120000; // 2 minutes in milliseconds
         this.initializeUI();
         this.setupRealtimeTracking();
-        // Initialize the current player immediately
         this.updateCurrentPlayer();
+
+        // Listen for game start
+        this.setupGameStartListener();
+    }
+
+    setupGameStartListener() {
+        // Watch for the game screen to be displayed
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+                    const gameScreen = document.getElementById('gameScreen');
+                    if (gameScreen && gameScreen.style.display === 'block') {
+                        this.ensureTrackerVisible();
+                    }
+                }
+            });
+        });
+
+        // Start observing the game screen
+        const gameScreen = document.getElementById('gameScreen');
+        if (gameScreen) {
+            observer.observe(gameScreen, {
+                attributes: true,
+                attributeFilter: ['style']
+            });
+        }
+
+        // Also listen for the start button click
+        const startButton = document.getElementById('startButton');
+        if (startButton) {
+            startButton.addEventListener('click', () => {
+                setTimeout(() => this.ensureTrackerVisible(), 100);
+            });
+        }
+    }
+
+    ensureTrackerVisible() {
+        const tracker = document.getElementById('leaderboard-container');
+        if (tracker) {
+            tracker.style.display = 'block';
+            this.updateCurrentPlayer();
+        }
     }
 
     initializeUI() {
@@ -31,6 +72,7 @@ class OnlineTracker {
             border: 1px solid rgba(0, 255, 0, 0.3);
             backdrop-filter: blur(5px);
             transition: all 0.3s ease;
+            display: none;
         `;
 
         // Create leaderboard header
