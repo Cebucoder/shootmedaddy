@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shooting Game</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="game-container">
+        <div id="startScreen" class="screen">
+            <h1>SUITCASE SHOOTER</h1>
+            <div class="controls-guide">
+                <h2>Controls</h2>
+                <div class="control-item">
+                    <span class="key">W / ↑</span>
+                    <span class="description">Move Up</span>
+                </div>
+                <div class="control-item">
+                    <span class="key">S / ↓</span>
+                    <span class="description">Move Down</span>
+                </div>
+                <div class="control-item">
+                    <span class="key">A / ←</span>
+                    <span class="description">Move Left</span>
+                </div>
+                <div class="control-item">
+                    <span class="key">D / →</span>
+                    <span class="description">Move Right</span>
+                </div>
+                <div class="control-item">
+                    <span class="key">Mouse</span>
+                    <span class="description">Aim</span>
+                </div>
+                <div class="control-item">
+                    <span class="key">Left Click</span>
+                    <span class="description">Shoot</span>
+                </div>
+            </div>
+            <button id="startButton">START GAME</button>
+        </div>
+        <div id="gameScreen" class="screen hidden">
+            <canvas id="gameCanvas"></canvas>
+            <div class="hud">
+                <div class="score">Score: <span id="scoreValue">0</span></div>
+                <div class="health">Health: <span id="healthValue">100</span></div>
+            </div>
+        </div>
+        <div id="gameOverScreen" class="screen hidden">
+            <h1>GAME OVER</h1>
+            <div class="final-score">Final Score: <span id="finalScoreValue">0</span></div>
+            <button id="restartButton">PLAY AGAIN</button>
+        </div>
+    </div>
+    <script src="game.js"></script>
+</body>
+</html> 
