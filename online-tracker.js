@@ -72,7 +72,7 @@ class OnlineTracker {
 
     setupSocketConnection() {
         // Connect to the Socket.IO server
-        this.socket = io('http://localhost:3000');
+        this.socket = io('https://cebucoder.github.io/shootmedaddy/');
 
         // Handle connection
         this.socket.on('connect', () => {
