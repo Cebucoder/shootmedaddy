@@ -10,6 +10,8 @@ class OnlineTracker {
         this.pendingUpdate = false;
         this.playerCounter = 1;
         this.username = '';
+        this.heartbeatInterval = 2000; // 2 seconds heartbeat
+        this.onlineTimeout = 5000; // 5 seconds timeout
         this.initializeUI();
         this.setupRealtimeTracking();
         this.setupOtherPlayers();
@@ -43,6 +45,8 @@ class OnlineTracker {
 
         // Check for existing players
         this.checkExistingPlayers();
+
+        this.setupHeartbeat();
     }
 
     checkExistingPlayers() {
@@ -105,84 +109,87 @@ class OnlineTracker {
 
     initializeUI() {
         // Create leaderboard container
-        const leaderboardContainer = document.createElement('div');
-        leaderboardContainer.id = 'leaderboard';
-        leaderboardContainer.style.cssText = `
+        const container = document.createElement('div');
+        container.style.cssText = `
             position: fixed;
             top: 20px;
             right: 20px;
-            width: 300px;
             background: rgba(0, 0, 0, 0.8);
-            border-radius: 10px;
             padding: 15px;
+            border-radius: 10px;
             color: white;
             font-family: Arial, sans-serif;
             z-index: 1000;
-            backdrop-filter: blur(5px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+            min-width: 250px;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.2);
+            border: 1px solid rgba(0, 255, 0, 0.3);
         `;
 
-        // Add title
-        const title = document.createElement('h2');
-        title.textContent = 'Leaderboard';
+        // Add title with online indicator
+        const title = document.createElement('h3');
         title.style.cssText = `
-            margin: 0 0 15px 0;
-            font-size: 20px;
+            margin: 0 0 10px 0;
             color: #00ff00;
-            text-align: center;
-            text-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        `;
+        title.innerHTML = `
+            <span class="online-indicator"></span>
+            Live Leaderboard
         `;
 
         // Add player count
         const playerCount = document.createElement('div');
         playerCount.id = 'player-count';
         playerCount.style.cssText = `
-            text-align: center;
-            margin-bottom: 10px;
             color: #aaa;
             font-size: 14px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        `;
+        playerCount.innerHTML = `
+            <span class="online-indicator"></span>
+            0 Players Online
         `;
 
-        // Create leaderboard list
-        const leaderboardList = document.createElement('ul');
-        leaderboardList.style.cssText = `
+        // Add player list
+        const playerList = document.createElement('ul');
+        playerList.style.cssText = `
             list-style: none;
             padding: 0;
             margin: 0;
+            max-height: 300px;
+            overflow-y: auto;
         `;
+        this.leaderboardElement = playerList;
 
-        leaderboardContainer.appendChild(title);
-        leaderboardContainer.appendChild(playerCount);
-        leaderboardContainer.appendChild(leaderboardList);
-        document.body.appendChild(leaderboardContainer);
+        // Add styles for online indicator
+        const style = document.createElement('style');
+        style.textContent = `
+            .online-indicator {
+                display: inline-block;
+                width: 8px;
+                height: 8px;
+                background: #00ff00;
+                border-radius: 50%;
+                box-shadow: 0 0 5px #00ff00;
+                animation: pulse 2s infinite;
+            }
+            @keyframes pulse {
+                0% { opacity: 1; }
+                50% { opacity: 0.5; }
+                100% { opacity: 1; }
+            }
+        `;
+        document.head.appendChild(style);
 
-        this.leaderboardElement = leaderboardList;
-
-        // Add username validation
-        const usernameInput = document.getElementById('usernameInput');
-        const startButton = document.getElementById('startButton');
-        const usernameError = document.getElementById('usernameError');
-
-        if (usernameInput && startButton) {
-            startButton.addEventListener('click', () => {
-                const username = usernameInput.value.trim();
-                if (username.length < 3) {
-                    usernameError.textContent = 'Username must be at least 3 characters long';
-                    return;
-                }
-                if (username.length > 15) {
-                    usernameError.textContent = 'Username must be 15 characters or less';
-                    return;
-                }
-                this.username = username;
-                startGame(); // Call the game's start function
-            });
-
-            usernameInput.addEventListener('input', () => {
-                usernameError.textContent = '';
-            });
-        }
+        container.appendChild(title);
+        container.appendChild(playerCount);
+        container.appendChild(playerList);
+        document.body.appendChild(container);
     }
 
     updatePlayer(playerId, data) {
@@ -209,30 +216,26 @@ class OnlineTracker {
         if (!this.leaderboardElement) return;
 
         try {
-            // Update player count
-            const playerCount = document.getElementById('player-count');
-            if (playerCount) {
-                playerCount.textContent = `${this.players.size} Players Online`;
-            }
-
-            // Sort players by score
+            // Sort players by score and online status
             const sortedPlayers = Array.from(this.players.entries())
-                .sort(([, a], [, b]) => b.score - a.score);
+                .sort(([, a], [, b]) => {
+                    // Online players first
+                    if (a.isOnline !== b.isOnline) return b.isOnline ? 1 : -1;
+                    // Then by score
+                    return b.score - a.score;
+                });
 
-            // Update existing elements instead of recreating them
+            // Update existing elements
             const existingElements = this.leaderboardElement.children;
             sortedPlayers.forEach(([id, player], index) => {
                 let playerElement;
                 if (index < existingElements.length) {
-                    // Update existing element
                     playerElement = existingElements[index];
                 } else {
-                    // Create new element
                     playerElement = document.createElement('li');
                     this.leaderboardElement.appendChild(playerElement);
                 }
 
-                // Update element content
                 playerElement.style.cssText = `
                     padding: 12px;
                     margin: 5px 0;
@@ -243,6 +246,7 @@ class OnlineTracker {
                     align-items: center;
                     transition: all 0.3s ease;
                     border: 1px solid ${id === this.currentPlayer ? 'rgba(0, 255, 0, 0.3)' : 'rgba(255, 255, 255, 0.1)'};
+                    opacity: ${player.isOnline ? '1' : '0.5'};
                 `;
 
                 const playerInfo = document.createElement('div');
@@ -251,6 +255,11 @@ class OnlineTracker {
                     align-items: center;
                     gap: 10px;
                 `;
+
+                // Add online indicator
+                const onlineIndicator = document.createElement('span');
+                onlineIndicator.className = 'online-indicator';
+                onlineIndicator.style.opacity = player.isOnline ? '1' : '0.3';
 
                 // Add rank
                 const rank = document.createElement('span');
@@ -262,13 +271,16 @@ class OnlineTracker {
                     min-width: 30px;
                 `;
 
-                // Add player name
+                // Add player name with online status
                 const nameElement = document.createElement('span');
                 nameElement.textContent = player.name || 'Player ' + id;
                 nameElement.style.cssText = `
                     color: ${id === this.currentPlayer ? '#00ff00' : 'white'};
                     font-weight: ${id === this.currentPlayer ? 'bold' : 'normal'};
                     font-size: 16px;
+                    display: flex;
+                    align-items: center;
+                    gap: 5px;
                 `;
 
                 const statsElement = document.createElement('div');
@@ -344,9 +356,10 @@ class OnlineTracker {
                 statsElement.appendChild(scoreElement);
                 statsElement.appendChild(healthBarContainer);
 
+                playerInfo.appendChild(onlineIndicator);
                 playerInfo.appendChild(rank);
                 playerInfo.appendChild(nameElement);
-                playerElement.innerHTML = ''; // Clear existing content
+                playerElement.innerHTML = '';
                 playerElement.appendChild(playerInfo);
                 playerElement.appendChild(statsElement);
             });
@@ -500,6 +513,73 @@ class OnlineTracker {
             }
             this.updateLeaderboard();
         }, 5000); // Check every 5 seconds
+    }
+
+    setupHeartbeat() {
+        // Send heartbeat every 2 seconds
+        setInterval(() => {
+            this.sendHeartbeat();
+        }, this.heartbeatInterval);
+
+        // Check for online status every second
+        setInterval(() => {
+            this.checkOnlineStatus();
+        }, 1000);
+    }
+
+    sendHeartbeat() {
+        const playerData = {
+            id: this.currentPlayer,
+            name: this.username || 'Player',
+            level: window.currentLevel || 1,
+            score: window.score || 0,
+            health: window.health || 100,
+            lastUpdate: Date.now(),
+            isOnline: true
+        };
+        localStorage.setItem(`player_${this.currentPlayer}`, JSON.stringify(playerData));
+    }
+
+    checkOnlineStatus() {
+        const currentTime = Date.now();
+        let onlineCount = 0;
+
+        // Check all players in localStorage
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('player_')) {
+                try {
+                    const playerData = JSON.parse(localStorage.getItem(key));
+                    if (playerData) {
+                        const isOnline = currentTime - playerData.lastUpdate < this.onlineTimeout;
+                        if (isOnline) {
+                            onlineCount++;
+                            this.updatePlayer(playerData.id, {
+                                ...playerData,
+                                isOnline: true
+                            });
+                        } else {
+                            // Remove offline players
+                            this.players.delete(playerData.id);
+                            localStorage.removeItem(key);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error checking player status:', error);
+                }
+            }
+        }
+
+        // Update online count display
+        const playerCount = document.getElementById('player-count');
+        if (playerCount) {
+            playerCount.innerHTML = `
+                <span class="online-indicator"></span>
+                ${onlineCount} Players Online
+            `;
+        }
+
+        this.updateLeaderboard();
     }
 }
 
