@@ -4,8 +4,10 @@ class OnlineTracker {
         this.players = new Map();
         this.currentPlayer = 'player1'; // Set default current player
         this.leaderboardElement = null;
-        this.lastUpdate = Date.now();
-        this.updateInterval = 120000; // 2 minutes in milliseconds
+        this.lastUpdateTime = 0;
+        this.updateInterval = 100; // 100ms between updates
+        this.isUpdating = false;
+        this.pendingUpdate = false;
         this.initializeUI();
         this.setupRealtimeTracking();
         this.setupOtherPlayers();
@@ -204,9 +206,20 @@ class OnlineTracker {
             const sortedPlayers = Array.from(this.players.entries())
                 .sort(([, a], [, b]) => b.score - a.score);
 
-            // Create new elements
-            const newElements = sortedPlayers.map(([id, player], index) => {
-                const playerElement = document.createElement('li');
+            // Update existing elements instead of recreating them
+            const existingElements = this.leaderboardElement.children;
+            sortedPlayers.forEach(([id, player], index) => {
+                let playerElement;
+                if (index < existingElements.length) {
+                    // Update existing element
+                    playerElement = existingElements[index];
+                } else {
+                    // Create new element
+                    playerElement = document.createElement('li');
+                    this.leaderboardElement.appendChild(playerElement);
+                }
+
+                // Update element content
                 playerElement.style.cssText = `
                     padding: 12px;
                     margin: 5px 0;
@@ -216,8 +229,6 @@ class OnlineTracker {
                     justify-content: space-between;
                     align-items: center;
                     transition: all 0.3s ease;
-                    opacity: 0;
-                    transform: translateY(10px);
                     border: 1px solid ${id === this.currentPlayer ? 'rgba(0, 255, 0, 0.3)' : 'rgba(255, 255, 255, 0.1)'};
                 `;
 
@@ -300,24 +311,15 @@ class OnlineTracker {
 
                 playerInfo.appendChild(rank);
                 playerInfo.appendChild(nameElement);
+                playerElement.innerHTML = ''; // Clear existing content
                 playerElement.appendChild(playerInfo);
                 playerElement.appendChild(statsElement);
-
-                return playerElement;
             });
 
-            // Clear current leaderboard
-            this.leaderboardElement.innerHTML = '';
-
-            // Add new elements with staggered animation
-            newElements.forEach((element, index) => {
-                this.leaderboardElement.appendChild(element);
-                // Trigger animation
-                requestAnimationFrame(() => {
-                    element.style.opacity = '1';
-                    element.style.transform = 'translateY(0)';
-                });
-            });
+            // Remove extra elements
+            while (existingElements.length > sortedPlayers.length) {
+                this.leaderboardElement.removeChild(existingElements[existingElements.length - 1]);
+            }
         } catch (error) {
             console.error('Error updating leaderboard:', error);
         }
@@ -330,17 +332,13 @@ class OnlineTracker {
 
     setupRealtimeTracking() {
         // Create a MutationObserver to watch for changes in score and health elements
-        const observer = new MutationObserver((mutations) => {
-            mutations.forEach((mutation) => {
-                if (mutation.type === 'characterData' || mutation.type === 'childList') {
-                    this.updateCurrentPlayer();
-                }
-            });
+        const observer = new MutationObserver(() => {
+            this.scheduleUpdate();
         });
 
         // Start observing the score and health elements
-        const scoreElement = document.getElementById('score');
-        const healthElement = document.getElementById('health');
+        const scoreElement = document.getElementById('scoreValue');
+        const healthElement = document.getElementById('healthValue');
 
         if (scoreElement) {
             observer.observe(scoreElement, {
@@ -358,17 +356,40 @@ class OnlineTracker {
             });
         }
 
-        // Also watch for game state changes
-        setInterval(() => {
-            this.updateCurrentPlayer();
-        }, 1000); // Update every second
+        // Start the update loop
+        this.startUpdateLoop();
+    }
+
+    startUpdateLoop() {
+        const updateLoop = () => {
+            const currentTime = performance.now();
+            if (currentTime - this.lastUpdateTime >= this.updateInterval) {
+                this.updateCurrentPlayer();
+                this.lastUpdateTime = currentTime;
+            }
+            requestAnimationFrame(updateLoop);
+        };
+        requestAnimationFrame(updateLoop);
+    }
+
+    scheduleUpdate() {
+        if (!this.pendingUpdate) {
+            this.pendingUpdate = true;
+            requestAnimationFrame(() => {
+                this.updateCurrentPlayer();
+                this.pendingUpdate = false;
+            });
+        }
     }
 
     updateCurrentPlayer() {
+        if (this.isUpdating) return;
+        this.isUpdating = true;
+
         try {
             // Get game variables directly from game.js
             const gameScore = window.score || 0;
-            const gameLevel = window.currentLevel || 1; // Access the global currentLevel variable
+            const gameLevel = window.currentLevel || 1;
             const gameHealth = window.health || 100;
 
             // Update current player data
@@ -383,14 +404,17 @@ class OnlineTracker {
             this.updateLeaderboard();
         } catch (error) {
             console.error('Error updating current player:', error);
+        } finally {
+            this.isUpdating = false;
         }
     }
 
     setupOtherPlayers() {
         // Add some initial other players
         const otherPlayers = [
-            // { id: 'player2', name: 'Player 2', level: 2, score: 1500, health: 85 },
+            { id: 'player2', name: 'Player 2', level: 2, score: 1500, health: 85 },
             // { id: 'player3', name: 'Player 3', level: 1, score: 800, health: 100 },
+            // { id: 'player4', name: 'Player 4', level: 3, score: 2500, health: 75 }
         ];
 
         otherPlayers.forEach(player => {
