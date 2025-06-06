@@ -62,7 +62,8 @@ const player = {
     width: 40,
     height: 40,
     speed: 5,
-    angle: 0
+    angle: 0,
+    health: 100
 };
 
 // Controls state
@@ -384,8 +385,7 @@ function startGame() {
     enemiesRequired = 15;
     bossHitsRequired = 50;
     score = 0;
-    player.health = 100;
-    healthElement.textContent = player.health;
+    updateHealth(100);
     enemiesKilled = 0;
     bossSpawned = false;
     bossDefeated = false;
@@ -398,7 +398,6 @@ function startGame() {
     healthPotions.length = 0;
 
     scoreElement.textContent = score;
-    healthElement.textContent = health;
 
     startScreen.style.display = 'none';
     gameScreen.style.display = 'block';
@@ -675,8 +674,7 @@ function update() {
         const distance = Math.sqrt(dx * dx + dy * dy);
 
         if (distance < (enemy.width + player.width) / 2) {
-            player.health -= 10;
-            healthElement.textContent = player.health;
+            updateHealth(player.health - 10);
             enemies.splice(i, 1);
 
             // Trigger effects
@@ -814,8 +812,7 @@ function update() {
 
         // Check collision with player
         if (checkBulletCollision(bullet, player)) {
-            player.health -= 10;
-            healthElement.textContent = player.health;
+            updateHealth(player.health - 10);
             enemyBullets.splice(i, 1);
 
             // Trigger effects
@@ -877,8 +874,7 @@ function update() {
         const distance = Math.sqrt(dx * dx + dy * dy);
 
         if (distance < potion.radius + player.width / 2) {
-            player.health = Math.min(100, player.health + 50);
-            healthElement.textContent = player.health;
+            updateHealth(Math.min(100, player.health + 50));
             healthPotions.splice(i, 1);
             createHealingEffect();
         }
@@ -1178,4 +1174,12 @@ function drawPlayer(ctx) {
 function applyScreenShake(intensity = 5, duration = 10) {
     screenShake.intensity = intensity;
     screenShake.duration = duration;
+}
+
+// Update health function
+function updateHealth(newHealth) {
+    health = newHealth;
+    player.health = newHealth;
+    window.health = newHealth;
+    healthElement.textContent = newHealth;
 } 

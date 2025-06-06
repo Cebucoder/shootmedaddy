@@ -5,7 +5,7 @@ class OnlineTracker {
         this.currentPlayer = 'player1';
         this.leaderboardElement = null;
         this.lastUpdateTime = 0;
-        this.updateInterval = 100; // 100ms between updates
+        this.updateInterval = 50; // Update every 50ms for smoother health updates
         this.isUpdating = false;
         this.pendingUpdate = false;
         this.playerCounter = 1;
@@ -17,35 +17,36 @@ class OnlineTracker {
 
         // Listen for game start
         this.setupGameStartListener();
+
+        // Get username from input if available
+        const usernameInput = document.getElementById('usernameInput');
+        if (usernameInput) {
+            this.username = usernameInput.value || 'Player';
+            usernameInput.addEventListener('input', (e) => {
+                this.username = e.target.value || 'Player';
+                this.updateCurrentPlayer();
+            });
+        }
     }
 
     setupGameStartListener() {
-        // Watch for the game screen to be displayed
-        const observer = new MutationObserver((mutations) => {
-            mutations.forEach((mutation) => {
-                if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
-                    const gameScreen = document.getElementById('gameScreen');
-                    if (gameScreen && gameScreen.style.display === 'block') {
-                        this.ensureTrackerVisible();
-                    }
-                }
-            });
-        });
-
-        // Start observing the game screen
-        const gameScreen = document.getElementById('gameScreen');
-        if (gameScreen) {
-            observer.observe(gameScreen, {
-                attributes: true,
-                attributeFilter: ['style']
-            });
-        }
-
-        // Also listen for the start button click
         const startButton = document.getElementById('startButton');
         if (startButton) {
             startButton.addEventListener('click', () => {
-                setTimeout(() => this.ensureTrackerVisible(), 100);
+                // Get username from input
+                const usernameInput = document.getElementById('usernameInput');
+                if (usernameInput) {
+                    this.username = usernameInput.value || 'Player';
+                }
+
+                // Update player with current stats
+                this.updateCurrentPlayer();
+
+                // Show the leaderboard
+                const leaderboard = document.getElementById('leaderboard');
+                if (leaderboard) {
+                    leaderboard.style.display = 'block';
+                }
             });
         }
     }
@@ -253,6 +254,25 @@ class OnlineTracker {
                     font-size: 14px;
                 `;
 
+                // Add health bar container
+                const healthBarContainer = document.createElement('div');
+                healthBarContainer.style.cssText = `
+                    display: flex;
+                    align-items: center;
+                    gap: 5px;
+                    margin-top: 4px;
+                `;
+
+                // Add health percentage
+                const healthText = document.createElement('span');
+                healthText.textContent = `${player.health}%`;
+                healthText.style.cssText = `
+                    color: ${player.health > 50 ? '#00ff00' : player.health > 25 ? '#ffff00' : '#ff0000'};
+                    font-size: 12px;
+                    min-width: 40px;
+                    text-align: right;
+                `;
+
                 // Add health bar
                 const healthBar = document.createElement('div');
                 healthBar.style.cssText = `
@@ -261,7 +281,6 @@ class OnlineTracker {
                     background: rgba(255, 255, 255, 0.1);
                     border-radius: 2px;
                     overflow: hidden;
-                    margin-top: 4px;
                 `;
 
                 const healthFill = document.createElement('div');
@@ -270,12 +289,16 @@ class OnlineTracker {
                     height: 100%;
                     background: ${player.health > 50 ? '#00ff00' : player.health > 25 ? '#ffff00' : '#ff0000'};
                     transition: all 0.3s ease;
+                    box-shadow: 0 0 5px ${player.health > 50 ? 'rgba(0, 255, 0, 0.5)' : player.health > 25 ? 'rgba(255, 255, 0, 0.5)' : 'rgba(255, 0, 0, 0.5)'};
                 `;
 
                 healthBar.appendChild(healthFill);
+                healthBarContainer.appendChild(healthText);
+                healthBarContainer.appendChild(healthBar);
+
                 statsElement.appendChild(levelBadge);
                 statsElement.appendChild(scoreElement);
-                statsElement.appendChild(healthBar);
+                statsElement.appendChild(healthBarContainer);
 
                 playerInfo.appendChild(rank);
                 playerInfo.appendChild(nameElement);
@@ -368,16 +391,6 @@ class OnlineTracker {
                 health: gameHealth
             });
 
-            // Broadcast the update
-            const playerData = {
-                id: this.currentPlayer,
-                name: this.username || 'Player',
-                level: gameLevel,
-                score: gameScore,
-                health: gameHealth
-            };
-            localStorage.setItem(`player_${this.currentPlayer}`, JSON.stringify(playerData));
-
             // Force a leaderboard update
             this.updateLeaderboard();
         } catch (error) {
@@ -400,27 +413,21 @@ class OnlineTracker {
             health: window.health || 100
         });
 
-        // Listen for new players joining
-        window.addEventListener('storage', (event) => {
-            if (event.key && event.key.startsWith('player_')) {
-                const playerData = JSON.parse(event.newValue);
-                if (playerData && playerData.id !== this.currentPlayer) {
-                    this.updatePlayer(playerData.id, playerData);
-                }
-            }
+        // Add some other players with random stats
+        const otherPlayers = [
+            { name: 'Player 2', level: 2, score: 1500, health: 75 }
+        ];
+
+        otherPlayers.forEach((player, index) => {
+            const id = `player${this.playerCounter++}`;
+            this.updatePlayer(id, player);
         });
 
-        // Broadcast this player's data periodically
-        setInterval(() => {
-            const playerData = {
-                id: this.currentPlayer,
-                name: this.username || 'Player',
-                level: window.currentLevel || 1,
-                score: window.score || 0,
-                health: window.health || 100
-            };
-            localStorage.setItem(`player_${this.currentPlayer}`, JSON.stringify(playerData));
-        }, 1000);
+        // Update the leaderboard
+        this.updateLeaderboard();
+
+        // Start the update loop to keep player data current
+        this.startUpdateLoop();
     }
 }
 
