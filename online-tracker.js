@@ -2,9 +2,14 @@
 class OnlineTracker {
     constructor() {
         this.players = new Map();
-        this.currentPlayer = null;
+        this.currentPlayer = 'player1'; // Set default current player
         this.leaderboardElement = null;
+        this.lastUpdate = Date.now();
+        this.updateInterval = 120000; // 2 minutes in milliseconds
         this.initializeUI();
+        this.setupRealtimeTracking();
+        // Initialize the current player immediately
+        this.updateCurrentPlayer();
     }
 
     initializeUI() {
@@ -123,12 +128,18 @@ class OnlineTracker {
     }
 
     updatePlayer(playerId, data) {
-        this.players.set(playerId, {
-            ...this.players.get(playerId),
+        const currentData = this.players.get(playerId);
+        const newData = {
+            ...currentData,
             ...data,
             lastUpdate: Date.now()
-        });
-        this.updateLeaderboard();
+        };
+
+        // Only update if there are actual changes
+        if (JSON.stringify(currentData) !== JSON.stringify(newData)) {
+            this.players.set(playerId, newData);
+            this.updateLeaderboard();
+        }
     }
 
     removePlayer(playerId) {
@@ -145,15 +156,12 @@ class OnlineTracker {
             playerCount.textContent = `${this.players.size} Players`;
         }
 
-        // Clear current leaderboard
-        this.leaderboardElement.innerHTML = '';
-
         // Sort players by score
         const sortedPlayers = Array.from(this.players.entries())
             .sort(([, a], [, b]) => b.score - a.score);
 
-        // Add players to leaderboard
-        sortedPlayers.forEach(([id, player], index) => {
+        // Create new elements
+        const newElements = sortedPlayers.map(([id, player], index) => {
             const playerElement = document.createElement('li');
             playerElement.style.cssText = `
                 padding: 12px;
@@ -164,7 +172,8 @@ class OnlineTracker {
                 justify-content: space-between;
                 align-items: center;
                 transition: all 0.3s ease;
-                animation: slideIn 0.3s ease;
+                opacity: 0;
+                transform: translateY(10px);
                 border: 1px solid ${id === this.currentPlayer ? 'rgba(0, 255, 0, 0.3)' : 'rgba(255, 255, 255, 0.1)'};
             `;
 
@@ -227,7 +236,21 @@ class OnlineTracker {
             statsElement.appendChild(scoreElement);
             playerElement.appendChild(playerInfo);
             playerElement.appendChild(statsElement);
-            this.leaderboardElement.appendChild(playerElement);
+
+            return playerElement;
+        });
+
+        // Clear current leaderboard
+        this.leaderboardElement.innerHTML = '';
+
+        // Add new elements with staggered animation
+        newElements.forEach((element, index) => {
+            this.leaderboardElement.appendChild(element);
+            // Trigger animation
+            requestAnimationFrame(() => {
+                element.style.opacity = '1';
+                element.style.transform = 'translateY(0)';
+            });
         });
     }
 
@@ -235,43 +258,60 @@ class OnlineTracker {
         this.currentPlayer = playerId;
         this.updateLeaderboard();
     }
+
+    setupRealtimeTracking() {
+        // Create a MutationObserver to watch for changes in score and health elements
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.type === 'characterData' || mutation.type === 'childList') {
+                    this.updateCurrentPlayer();
+                }
+            });
+        });
+
+        // Start observing the score and health elements
+        const scoreElement = document.getElementById('score');
+        const healthElement = document.getElementById('health');
+
+        if (scoreElement) {
+            observer.observe(scoreElement, {
+                characterData: true,
+                childList: true,
+                subtree: true
+            });
+        }
+
+        if (healthElement) {
+            observer.observe(healthElement, {
+                characterData: true,
+                childList: true,
+                subtree: true
+            });
+        }
+    }
+
+    updateCurrentPlayer() {
+        // Directly access game variables
+        const gameScore = window.score || 0;
+        const gameLevel = window.currentLevel || 1;
+        const gameHealth = window.player?.health || 100;
+
+        this.updatePlayer('player1', {
+            name: 'You',
+            level: gameLevel,
+            score: gameScore,
+            health: gameHealth
+        });
+    }
 }
 
 // Create global tracker instance
 const onlineTracker = new OnlineTracker();
 
-// Mock function to simulate receiving player updates
-function simulatePlayerUpdates() {
-    // Update current player
-    onlineTracker.setCurrentPlayer('player1');
-    onlineTracker.updatePlayer('player1', {
-        name: 'You',
-        level: window.currentLevel || 1,
-        score: window.score || 0
-    });
-
-    // Simulate other players
-    const mockPlayers = [
-        { id: 'player2', name: 'Player 2', level: 2, score: 1500 },
-        { id: 'player3', name: 'Player 3', level: 1, score: 800 },
-        { id: 'player4', name: 'Player 4', level: 3, score: 2500 },
-        { id: 'player5', name: 'Player 5', level: 2, score: 1200 },
-        { id: 'player6', name: 'Player 6', level: 1, score: 500 }
-    ];
-
-    mockPlayers.forEach(player => {
-        onlineTracker.updatePlayer(player.id, {
-            name: player.name,
-            level: player.level,
-            score: player.score
-        });
-    });
-}
-
-// Update the leaderboard every second
+// Update the leaderboard every 2 minutes
 setInterval(() => {
-    simulatePlayerUpdates();
-}, 1000);
+    onlineTracker.updateCurrentPlayer();
+}, 120000);
 
 // Export the tracker for use in other files
 window.onlineTracker = onlineTracker; 
