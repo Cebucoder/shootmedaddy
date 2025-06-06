@@ -10,8 +10,8 @@ const startButton = document.getElementById('startButton');
 const restartButton = document.getElementById('restartButton');
 
 // Set canvas size
-canvas.width = 800;
-canvas.height = 600;
+canvas.width = 850;
+canvas.height = 700;
 
 // Game state
 let score = 0;
