@@ -27,6 +27,17 @@ class OnlineTracker {
                 this.updateCurrentPlayer();
             });
         }
+
+        // Listen for other players' updates
+        window.addEventListener('storage', (event) => {
+            if (event.key && event.key.startsWith('player_')) {
+                const playerData = JSON.parse(event.newValue);
+                if (playerData && playerData.id !== this.currentPlayer) {
+                    this.updatePlayer(playerData.id, playerData);
+                    this.updateLeaderboard();
+                }
+            }
+        });
     }
 
     setupGameStartListener() {
@@ -47,6 +58,16 @@ class OnlineTracker {
                 if (leaderboard) {
                     leaderboard.style.display = 'block';
                 }
+
+                // Broadcast initial player data
+                const playerData = {
+                    id: this.currentPlayer,
+                    name: this.username || 'Player',
+                    level: window.currentLevel || 1,
+                    score: window.score || 0,
+                    health: window.health || 100
+                };
+                localStorage.setItem(`player_${this.currentPlayer}`, JSON.stringify(playerData));
             });
         }
     }
@@ -391,6 +412,16 @@ class OnlineTracker {
                 health: gameHealth
             });
 
+            // Broadcast the update
+            const playerData = {
+                id: this.currentPlayer,
+                name: this.username || 'Player',
+                level: gameLevel,
+                score: gameScore,
+                health: gameHealth
+            };
+            localStorage.setItem(`player_${this.currentPlayer}`, JSON.stringify(playerData));
+
             // Force a leaderboard update
             this.updateLeaderboard();
         } catch (error) {
@@ -402,7 +433,7 @@ class OnlineTracker {
 
     setupOtherPlayers() {
         // Generate a unique player ID for this instance
-        const playerId = `player${this.playerCounter++}`;
+        const playerId = `player${Date.now()}`; // Use timestamp for unique ID
         this.currentPlayer = playerId;
 
         // Add this player to the tracker
@@ -413,21 +444,23 @@ class OnlineTracker {
             health: window.health || 100
         });
 
-        // Add some other players with random stats
-        const otherPlayers = [
-            { name: 'Player 2', level: 2, score: 1500, health: 75 }
-        ];
-
-        otherPlayers.forEach((player, index) => {
-            const id = `player${this.playerCounter++}`;
-            this.updatePlayer(id, player);
-        });
-
         // Update the leaderboard
         this.updateLeaderboard();
 
         // Start the update loop to keep player data current
         this.startUpdateLoop();
+
+        // Broadcast this player's data periodically
+        setInterval(() => {
+            const playerData = {
+                id: this.currentPlayer,
+                name: this.username || 'Player',
+                level: window.currentLevel || 1,
+                score: window.score || 0,
+                health: window.health || 100
+            };
+            localStorage.setItem(`player_${this.currentPlayer}`, JSON.stringify(playerData));
+        }, 1000); // Update every second
     }
 }
 
