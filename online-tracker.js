@@ -2,12 +2,13 @@
 class OnlineTracker {
     constructor() {
         this.players = new Map();
-        this.currentPlayer = 'player1'; // Set default current player
+        this.currentPlayer = 'player1';
         this.leaderboardElement = null;
         this.lastUpdateTime = 0;
         this.updateInterval = 100; // 100ms between updates
         this.isUpdating = false;
         this.pendingUpdate = false;
+        this.playerCounter = 1;
         this.initializeUI();
         this.setupRealtimeTracking();
         this.setupOtherPlayers();
@@ -393,12 +394,22 @@ class OnlineTracker {
             const gameHealth = window.health || 100;
 
             // Update current player data
-            this.updatePlayer('player1', {
+            this.updatePlayer(this.currentPlayer, {
                 name: 'You',
                 level: gameLevel,
                 score: gameScore,
                 health: gameHealth
             });
+
+            // Broadcast the update
+            const playerData = {
+                id: this.currentPlayer,
+                name: 'You',
+                level: gameLevel,
+                score: gameScore,
+                health: gameHealth
+            };
+            localStorage.setItem(`player_${this.currentPlayer}`, JSON.stringify(playerData));
 
             // Force a leaderboard update
             this.updateLeaderboard();
@@ -410,34 +421,39 @@ class OnlineTracker {
     }
 
     setupOtherPlayers() {
-        // Add some initial other players
-        const otherPlayers = [
-            { id: 'player2', name: 'Player 2', level: 2, score: 1500, health: 85 },
-            // { id: 'player3', name: 'Player 3', level: 1, score: 800, health: 100 },
-            // { id: 'player4', name: 'Player 4', level: 3, score: 2500, health: 75 }
-        ];
+        // Generate a unique player ID for this instance
+        const playerId = `player${this.playerCounter++}`;
+        this.currentPlayer = playerId;
 
-        otherPlayers.forEach(player => {
-            this.updatePlayer(player.id, player);
+        // Add this player to the tracker
+        this.updatePlayer(playerId, {
+            name: 'You',
+            level: window.currentLevel || 1,
+            score: window.score || 0,
+            health: window.health || 100
         });
 
-        // Update other players' scores periodically
-        setInterval(() => {
-            otherPlayers.forEach(player => {
-                // Randomly update scores and levels
-                const scoreChange = Math.floor(Math.random() * 100) - 20; // -20 to +80
-                const newScore = Math.max(0, player.score + scoreChange);
-                const newLevel = Math.max(1, Math.floor(newScore / 1000) + 1);
-                const newHealth = Math.min(100, Math.max(0, player.health + (Math.random() * 20 - 10)));
+        // Listen for new players joining
+        window.addEventListener('storage', (event) => {
+            if (event.key && event.key.startsWith('player_')) {
+                const playerData = JSON.parse(event.newValue);
+                if (playerData && playerData.id !== this.currentPlayer) {
+                    this.updatePlayer(playerData.id, playerData);
+                }
+            }
+        });
 
-                this.updatePlayer(player.id, {
-                    ...player,
-                    score: newScore,
-                    level: newLevel,
-                    health: newHealth
-                });
-            });
-        }, 30000); // Update every 30 seconds
+        // Broadcast this player's data periodically
+        setInterval(() => {
+            const playerData = {
+                id: this.currentPlayer,
+                name: 'You',
+                level: window.currentLevel || 1,
+                score: window.score || 0,
+                health: window.health || 100
+            };
+            localStorage.setItem(`player_${this.currentPlayer}`, JSON.stringify(playerData));
+        }, 1000);
     }
 }
 
