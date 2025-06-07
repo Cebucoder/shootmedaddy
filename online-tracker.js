@@ -150,7 +150,7 @@ class OnlineTracker {
         const container = document.createElement('div');
         container.style.cssText = `
             position: fixed;
-            top: 20px;
+            top: 100px;
             right: 20px;
             background: rgba(0, 0, 0, 0.8);
             padding: 15px;

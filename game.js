@@ -1404,43 +1404,31 @@ document.head.appendChild(powerUpStyles);
 
 // Function to play explosion sound
 function playExplosionSound() {
-    if (!audioEnabled) {
-        console.log('Explosion sound not played: Audio not enabled');
-        return;
-    }
-
-    console.log('Attempting to play explosion sound...');
+    if (!audioEnabled) return;
 
     // Reset the sound to the beginning
     explodeSound.currentTime = 0;
 
     // Play the sound
-    explodeSound.play()
-        .then(() => {
-            console.log('✅ Explosion sound played successfully');
-        })
-        .catch(error => {
-            console.error('❌ Error playing explosion sound:', error);
-        });
+    explodeSound.play().catch(error => {
+        console.error('Error playing explosion sound:', error);
+    });
 }
 
 // Modify handleEnemyHit function
 function handleEnemyHit(enemy, bullet) {
-    console.log('Enemy hit! Health:', enemy.health);
     enemy.health -= bullet.damage;
 
     // Play explosion sound
     playExplosionSound();
 
     if (enemy.health <= 0) {
-        console.log('Enemy destroyed!');
         handleEnemyDeath(enemy);
     }
 }
 
 // Modify handleEnemyDeath function
 function handleEnemyDeath(enemy) {
-    console.log('Handling enemy death...');
     // Play explosion sound for enemy death
     playExplosionSound();
 
@@ -1448,31 +1436,27 @@ function handleEnemyDeath(enemy) {
     const index = enemies.indexOf(enemy);
     if (index > -1) {
         enemies.splice(index, 1);
-        console.log('Enemy removed from game. Remaining enemies:', enemies.length);
     }
 
     // Update score
     score += 100;
     scoreElement.textContent = score;
-    console.log('Score updated:', score);
 
     // Check for level completion
     if (enemies.length === 0) {
         currentLevel++;
         levelValue.textContent = currentLevel;
-        console.log('Level completed! Moving to level:', currentLevel);
         spawnEnemies();
     }
 }
 
-// Modify checkBulletCollisions function
+// Add explosion sound to bullet collision
 function checkBulletCollisions() {
     for (let i = bullets.length - 1; i >= 0; i--) {
         const bullet = bullets[i];
         for (let j = enemies.length - 1; j >= 0; j--) {
             const enemy = enemies[j];
             if (isColliding(bullet, enemy)) {
-                console.log('Bullet collision detected!');
                 // Play explosion sound on hit
                 playExplosionSound();
 
@@ -1481,7 +1465,6 @@ function checkBulletCollisions() {
 
                 // Remove the bullet
                 bullets.splice(i, 1);
-                console.log('Bullet removed. Remaining bullets:', bullets.length);
                 break;
             }
         }
