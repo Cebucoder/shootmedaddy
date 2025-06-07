@@ -21,11 +21,11 @@ class LeaderboardSystem {
     addTestData() {
         const testData = [
             {
-                username: "Player1",
-                level: 1,
-                score: 1700,
-                health: 100,
-                enemiesDefeated: 15,
+                username: "Danxkie",
+                level: 25,
+                score: 42500,
+                health: 50,
+                enemiesDefeated: 375,
                 timePlayed: "10:30",
                 date: new Date().toISOString()
             },
@@ -105,6 +105,7 @@ class LeaderboardSystem {
             list-style: none;
             padding: 0;
             margin: 0;
+            display:none;
         `;
         leaderboardContainer.appendChild(leaderboardList);
 
